@@ -1,0 +1,19 @@
+# Android Studio / IntelliJ
+*.iml
+.gradle
+.idea/
+/local.properties
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.jks
+*.keystore
+google-services.json
+
+# Log files
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
