@@ -3,34 +3,41 @@ package com.gogart.englishbuddy
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.gogart.englishbuddy.data.remote.NetworkClient
+import com.gogart.englishbuddy.data.repository.ChatRepositoryImpl
+import com.gogart.englishbuddy.ui.ChatScreen
 import com.gogart.englishbuddy.ui.theme.EnglishBuddyTheme
+import com.gogart.englishbuddy.viewmodel.ChatViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: ChatViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val repository = ChatRepositoryImpl(NetworkClient.geminiApiService)
+                return ChatViewModel(repository) as T
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             EnglishBuddyTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "EnglishBuddy",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    ChatScreen(viewModel = viewModel)
                 }
             }
         }
     }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
 }
