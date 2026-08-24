@@ -1,23 +1,27 @@
 package com.gogart.englishbuddy.data.repository
 
 import com.gogart.englishbuddy.BuildConfig
+import com.gogart.englishbuddy.data.local.dao.ChatMessageDao
 import com.gogart.englishbuddy.data.remote.GeminiApiService
 import com.gogart.englishbuddy.data.remote.dto.*
+import com.gogart.englishbuddy.data.mapper.toDomain
+import com.gogart.englishbuddy.data.mapper.toEntity
 import com.gogart.englishbuddy.domain.model.ChatMessage
 import com.gogart.englishbuddy.domain.model.MessageRole
 import com.gogart.englishbuddy.domain.repository.ChatRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import java.io.IOException
 
 class ChatRepositoryImpl(
-    private val apiService: GeminiApiService
+    private val apiService: GeminiApiService,
+    private val chatDao: ChatMessageDao
 ) : ChatRepository {
 
-    private val _chatHistory = MutableStateFlow<List<ChatMessage>>(emptyList())
-    override fun getChatHistory(): Flow<List<ChatMessage>> = _chatHistory.asStateFlow()
+    override fun getChatHistory(): Flow<List<ChatMessage>> {
+        return chatDao.getAllMessages().map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
 
     private val systemInstruction = SystemInstruction(
         parts = listOf(
@@ -36,13 +40,13 @@ class ChatRepositoryImpl(
 
     override suspend fun sendMessage(content: String): Result<Unit> {
         val userMessage = ChatMessage(content, MessageRole.USER)
-        _chatHistory.update { it + userMessage }
+        chatDao.insertMessage(userMessage.toEntity())
 
-        val slidingWindow = _chatHistory.value.takeLast(15)
+        val history = chatDao.getAllMessages().first().takeLast(15)
         val request = GeminiRequest(
-            contents = slidingWindow.map { message ->
+            contents = history.map { message ->
                 Content(
-                    role = if (message.role == MessageRole.USER) "user" else "model",
+                    role = if (message.role == "USER") "user" else "model",
                     parts = listOf(Part(text = message.content))
                 )
             },
@@ -54,7 +58,8 @@ class ChatRepositoryImpl(
             if (response.isSuccessful) {
                 val modelResponse = response.body()?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
                 if (modelResponse != null) {
-                    _chatHistory.update { it + ChatMessage(modelResponse, MessageRole.MODEL) }
+                    val modelMessage = ChatMessage(modelResponse, MessageRole.MODEL)
+                    chatDao.insertMessage(modelMessage.toEntity())
                     Result.success(Unit)
                 } else {
                     Result.failure(Exception("Empty response from Gemini"))

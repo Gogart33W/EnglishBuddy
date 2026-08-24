@@ -10,6 +10,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.room.Room
+import com.gogart.englishbuddy.data.local.AppDatabase
 import com.gogart.englishbuddy.data.remote.NetworkClient
 import com.gogart.englishbuddy.data.repository.ChatRepositoryImpl
 import com.gogart.englishbuddy.ui.ChatScreen
@@ -21,7 +23,12 @@ class MainActivity : ComponentActivity() {
     private val viewModel: ChatViewModel by viewModels {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val repository = ChatRepositoryImpl(NetworkClient.geminiApiService)
+                val db = Room.databaseBuilder(
+                    applicationContext,
+                    AppDatabase::class.java,
+                    "english_buddy.db"
+                ).build()
+                val repository = ChatRepositoryImpl(NetworkClient.geminiApiService, db.chatMessageDao)
                 return ChatViewModel(repository) as T
             }
         }
