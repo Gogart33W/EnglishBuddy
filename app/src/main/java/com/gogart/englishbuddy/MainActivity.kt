@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
                     applicationContext,
                     AppDatabase::class.java,
                     "english_buddy.db"
-                ).fallbackToDestructiveMigration()
+                ).addMigrations(AppDatabase.MIGRATION_6_7)
                  .build()
                 val repository = ChatRepositoryImpl(
                     NetworkClient.geminiApiService,

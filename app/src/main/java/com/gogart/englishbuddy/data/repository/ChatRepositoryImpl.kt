@@ -47,6 +47,17 @@ class ChatRepositoryImpl(
         required = listOf("hasCorrection", "tutorResponse")
     )
 
+    private val dictionaryResponseSchema = ResponseSchema(
+        type = "OBJECT",
+        properties = mapOf(
+            "word" to ResponseSchemaProperty(type = "STRING"),
+            "transcription" to ResponseSchemaProperty(type = "STRING"),
+            "translation" to ResponseSchemaProperty(type = "STRING"),
+            "example" to ResponseSchemaProperty(type = "STRING")
+        ),
+        required = listOf("word", "transcription", "translation", "example")
+    )
+
     override fun getSessions(): Flow<List<ChatSession>> = sessionDao.getAllSessions().map { entities ->
         entities.map { it.toDomain() }
     }
@@ -202,7 +213,10 @@ class ChatRepositoryImpl(
         val request = GeminiRequest(
             contents = listOf(Content(role = "user", parts = listOf(Part(text = "Define '$word'")))),
             systemInstruction = SystemInstruction(parts = listOf(Part(text = "Return JSON: {word, transcription, translation(UK), example}"))),
-            generationConfig = GenerationConfig(responseMimeType = "application/json")
+            generationConfig = GenerationConfig(
+                responseMimeType = "application/json",
+                responseSchema = dictionaryResponseSchema
+            )
         )
 
         return try {
@@ -214,6 +228,7 @@ class ChatRepositoryImpl(
                 Result.success(dictResp)
             } else Result.failure(Exception("Not found"))
         } catch (e: Exception) {
+            Log.e("ChatRepo", "Dictionary lookup failed for '$word'", e)
             Result.failure(e)
         }
     }

@@ -1,15 +1,10 @@
-- [ ] Data Layer (SRS Metadata)
-    - [ ] Update `MistakeEntity.kt` with SRS fields
-    - [ ] Update `MistakeDao.kt` with Due/Weakness queries
-    - [ ] Update `AppDatabase.kt` (v6 + Destructive migration)
-- [ ] AI Integration (Adaptive Memory)
-    - [ ] Define `tutorResponseSchema` in `ChatRepositoryImpl.kt`
-    - [ ] Update `sendMessage` to inject top weaknesses into system prompt
-    - [ ] Enforce strict JSON schema in `apiService` calls
-- [ ] SRS Logic
-    - [ ] Update `resolveMistake` in `ChatRepositoryImpl.kt` with interval doubling
-- [ ] UI & ViewModel Updates
-    - [ ] Filter `allMistakes` by due date in `ChatViewModel.kt`
-    - [ ] Update `MistakesScreen.kt` empty state ("No reviews due")
-- [ ] Build & Verification
-- [ ] Atomic Commit
+- [x] Fix Dictionary Translation
+    - [x] Define `dictionaryResponseSchema` in `ChatRepositoryImpl.kt`
+    - [x] Update `getWordDefinition` to use the schema and strict JSON mode
+- [x] Implement Database Migrations
+    - [x] Update `AppDatabase.kt` to version 7
+    - [x] Define `MIGRATION_6_7` in `AppDatabase.kt`
+    - [x] Remove `fallbackToDestructiveMigration()` in `MainActivity.kt`
+    - [x] Add the migration to the Room builder in `MainActivity.kt`
+- [x] Verify build and functionality
+- [x] Atomic Commit

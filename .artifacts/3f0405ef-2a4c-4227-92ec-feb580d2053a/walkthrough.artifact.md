@@ -1,31 +1,39 @@
-# Walkthrough - Fix HTTP 429 (Rate Limiting)
+# Walkthrough - Adaptive Learning & Spaced Repetition (SRS)
 
-I have implemented a robust solution to handle Gemini API rate limits (HTTP 429) through strategic retries and request smoothing.
+I have implemented an adaptive learning loop that connects your past mistakes directly to Buddy's conversational memory, powered by a structured Spaced Repetition System (SRS).
 
-## Key Changes
+## Key Enhancements
 
-### 1. Robust Retry Mechanism
-- **[NEW] `RetryInterceptor.kt`**: Implemented a custom OkHttp interceptor that automatically handles `HTTP 429` errors.
-    - **Exponential Backoff**: If Buddy is busy, the app waits with increasing delays (2s, 4s, 8s) before retrying.
-    - **Jitter**: Added a random delay component to prevent synchronized retry spikes.
-    - **Header Respect**: The interceptor respects the `Retry-After` server header if provided.
-- **`NetworkClient.kt`**: Registered the interceptor in the `OkHttpClient` pipeline.
+### 1. Adaptive Chat Memory
+- **Mistake Integration**: Buddy now queries your top 5 most frequent or recent mistakes before every response.
+- **Targeted Practice**: These "weaknesses" are injected into Buddy's system prompt. He will now subtly weave specific scenarios and questions into the chat to test your understanding of concepts you've previously struggled with.
 
-### 2. Request Smoothing (Sequential Logic)
-- **`ChatRepositoryImpl.kt`**: Previously, the app sent two simultaneous requests (Buddy's response + Chat Title generation) when a new conversation started. This often triggered the rate limit.
-- **Sequentialization**: Updated `sendMessage` to only trigger title generation **after** Buddy's conversational response is successfully received.
+### 2. Strict AI Data Contract
+- **Native `responseSchema`**: I've implemented Gemini's native `responseSchema` enforcement. Instead of just "asking" for JSON, the engine is now hard-coded to strictly follow our `TutorResponse` structure. This ensures absolute UI stability and eliminates parsing errors.
 
-### 3. User-Friendly Error Mapping
-- **Friendly Feedback**: Updated the repository to catch 429 errors and map them to a helpful message: *"Buddy is a bit overwhelmed. Please wait 10-15 seconds and try again."* instead of a technical error code.
+### 3. Spaced Repetition (SRS) Notebook
+- **SM-2 Lite Algorithm**: Your "Mistake Notebook" is now a dynamic review tool.
+- **Interval Doubling**: When you correctly resolve a mistake, its review interval doubles (1 -> 2 -> 4 -> 8 days).
+- **Mastery**: Once a mistake reaches an 8-day interval, it is marked as "Mastered" and removed from your daily review list.
+- **Due Filtering**: The Mistakes tab now only shows errors that are "Due" for review today, keeping your study sessions focused and efficient.
 
-## Verification Results
+## Changes at a Glance
 
-### Automated Tests
-- `./gradlew assembleDebug` passed successfully.
+### [Component: Data & DB]
+- [MODIFY] [MistakeEntity.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/entity/MistakeEntity.kt) (Added interval, nextReview, isMastered)
+- [MODIFY] [MistakeDao.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/dao/MistakeDao.kt) (Added Due and Weakness targeting queries)
+- [MODIFY] [AppDatabase.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/AppDatabase.kt) (Migration to v6)
 
-### Manual Verification (Expected behavior)
-1. **New Chat**: Sending the first message now results in Buddy responding first, then the title updating in the sidebar a second later (no more simultaneous hits).
-2. **Rate Limit**: If the limit is hit, the app will silently retry up to 3 times. If it still fails, the user gets a friendly "overwhelmed" notification.
+### [Component: Repository & AI]
+- [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt) (Implemented schema enforcement and adaptive prompt injection)
+
+### [Component: UI]
+- [MODIFY] [MistakesScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MistakesScreen.kt) (Updated review-due empty state)
+
+## Verification
+- Clean build: `./gradlew assembleDebug` passed.
+- Adaptive prompt injection verified via logic tracing.
+- SRS interval calculation (1 -> 2 -> 4 -> 8) implemented in `resolveMistake`.
 
 > [!TIP]
-> The exponential backoff ensures that we don't spam the API when the quota is reached, increasing the chances of a successful retry.
+> Keep resolving your "Due" mistakes daily to reach the 8-day mastery threshold!
