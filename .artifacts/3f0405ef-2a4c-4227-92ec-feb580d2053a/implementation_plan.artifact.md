@@ -1,26 +1,43 @@
-# Implementation Plan - Performance Optimization & Rate Limit Mitigation
+# Implementation Plan - API Key Rotation & Stabilization
 
-Reduce Gemini API load by eliminating redundant calls and optimizing prompt token usage.
+Implement a load-balancing system that rotates multiple Gemini API keys to bypass individual rate limits and support concurrent users.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **API Keys Update**: You will need to update your `local.properties` file. Instead of one key, provide multiple keys separated by commas:
+> `GEMINI_API_KEYS=key1,key2,key3`
+
+> [!NOTE]
+> **Smart Failover**: If one key returns a `429 (Too Many Requests)`, the app will automatically switch to the next key and retry the request immediately, without making the user wait.
 
 ## Proposed Changes
 
-### 1. Repository Layer (Optimization)
+### 1. Build Configuration
 
-#### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
-- **Delete `generateAndSetSessionTitle`**: Stop using Gemini to generate conversation titles. This saves 1 API call for every new chat.
-- **New Local Title Logic**: Implement `generateLocalTitle(message: String)` which takes the first 4-5 words of the user message, cleans punctuation, and capitalizes it.
-- **Prompt Pruning**: Slightly condense the system instruction to reduce token overhead.
+#### [MODIFY] [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts)
+- Change `GEMINI_API_KEY` (String) to `GEMINI_API_KEYS` (String representing a comma-separated list).
+- Change `GEMINI_MODEL` to `gemini-1.5-flash` (or keep 2.5 if it's actually working in your environment, but 1.5 is standard stable).
 
-### 2. Network Layer (Retry Refinement)
+### 2. Network Layer (Rotation Logic)
+
+#### [NEW] [ApiKeyProvider.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/ApiKeyProvider.kt)
+- A thread-safe singleton that manages the list of keys.
+- Methods: `getApiKey()` (returns current), `nextKey()` (rotates to the next one).
 
 #### [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt)
-- **Reduce Backoff**: Change initial delay from 2s to 1s. The current 2-4-8 progression makes the "long wait" feel like the app is hung.
-- **Max Retries**: Keep it at 3, but with the faster progression (1s, 2s, 4s).
+- Update logic: When a `429` is detected:
+    1. Call `ApiKeyProvider.nextKey()`.
+    2. Retry the request with the new key **immediately** (no delay if keys are available).
+    3. If all keys are exhausted/rate-limited, then fallback to exponential backoff.
 
-### 3. UI Layer (UX)
+#### [MODIFY] [NetworkClient.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/NetworkClient.kt)
+- Remove the `key` query parameter from the Retrofit interface or handle it via a new `ApiKeyInterceptor`.
 
-#### [MODIFY] [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt)
-- **Word Tap Debounce**: Ensure that if a dictionary lookup is already in progress, tapping another word doesn't fire a new request.
+### 3. Repository Layer
+
+#### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
+- Remove `BuildConfig.GEMINI_API_KEY` from direct calls. The interceptor will now handle key injection.
 
 ## Verification Plan
 
@@ -28,6 +45,6 @@ Reduce Gemini API load by eliminating redundant calls and optimizing prompt toke
 - Run `./gradlew assembleDebug` to ensure compilation.
 
 ### Manual Verification
-1. **Speed**: Start a new chat and verify Buddy responds noticeably faster (due to 1 request instead of 2).
-2. **Titles**: Verify the drawer shows a readable title generated from your first message.
-3. **Rate Limits**: Stress-test by sending messages; verify the app handles 429s more gracefully with shorter waits.
+1. **Load Balancing**: Monitor logs to see different API keys being used for consecutive requests.
+2. **Failover**: Simulate a 429 (or use a key that is already limited) and verify the app silently switches keys and succeeds.
+3. **Capacity**: Verify the app handles multiple rapid requests (simulating 10 users) across the pool of keys.

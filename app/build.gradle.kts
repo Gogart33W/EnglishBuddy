@@ -29,9 +29,9 @@ android {
         if (propertiesFile.exists()) {
             properties.load(propertiesFile.inputStream())
         }
-        val geminiApiKey = properties.getProperty("GEMINI_API_KEY") ?: ""
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
-        buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash\"")
+        val geminiApiKeys = properties.getProperty("GEMINI_API_KEYS") ?: ""
+        buildConfigField("String", "GEMINI_API_KEYS", "\"$geminiApiKeys\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"gemini-1.5-flash\"")
     }
 
     buildTypes {

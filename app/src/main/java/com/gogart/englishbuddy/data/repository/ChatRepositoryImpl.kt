@@ -137,7 +137,6 @@ class ChatRepositoryImpl(
 
             val response = apiService.generateContent(
                 model = BuildConfig.GEMINI_MODEL,
-                apiKey = BuildConfig.GEMINI_API_KEY,
                 request = request
             )
             val jsonResponse = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
@@ -207,7 +206,7 @@ class ChatRepositoryImpl(
         )
 
         return try {
-            val response = apiService.generateContent(model = BuildConfig.GEMINI_MODEL, apiKey = BuildConfig.GEMINI_API_KEY, request = request)
+            val response = apiService.generateContent(model = BuildConfig.GEMINI_MODEL, request = request)
             val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
             if (text != null) {
                 val dictResp = json.decodeFromString<DictionaryResponse>(text)

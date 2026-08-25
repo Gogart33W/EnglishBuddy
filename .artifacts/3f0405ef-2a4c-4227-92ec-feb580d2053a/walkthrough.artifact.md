@@ -1,35 +1,44 @@
-# Walkthrough - Performance Optimization & Rate Limit Mitigation
+# Walkthrough - API Key Rotation & Load Balancing
 
-I have optimized the Gemini API integration to reduce latency, save tokens, and handle rate limits more efficiently.
+I have implemented an API key rotation system to bypass Gemini's strict free-tier rate limits, allowing the app to support multiple concurrent users reliably.
 
-## Key Improvements
+## Key Features
 
-### 1. Significant Latency Reduction
-- **Removed AI Title Generation**: Buddy no longer calls Gemini to generate a chat title. Instead, I implemented a local algorithm that instantly creates a human-readable title from your first 4-5 words. This saves **one full API request** every time you start a new conversation.
-- **Prompt Pruning**: Condensed the system instructions and reduced chat history context from 15 to 10 messages. This reduces token overhead and results in faster response generation from the model.
+### 1. Multi-Key Support
+- **`local.properties` Integration**: You can now provide a comma-separated list of keys:
+  `GEMINI_API_KEYS=key1,key2,key3...`
+- **Build Configuration**: Updated [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts) to expose these keys as a single field in `BuildConfig`.
 
-### 2. Improved Rate Limit Handling (HTTP 429)
-- **Faster Retries**: Optimized the `RetryInterceptor.kt` delay from a 2s base to a **1s base**. If Buddy is busy, the app now recovers much faster (1s, 2s, 4s delays) without making the UI feel frozen.
-- **Sequential Safety**: Re-confirmed that all auxiliary logic happens sequentially, preventing simultaneous "burst" hits to the API.
+### 2. Intelligent Load Balancing
+- **[NEW] `ApiKeyProvider.kt`**: A thread-safe component that rotates through your list of keys for every request.
+- **[NEW] `ApiKeyInterceptor.kt`**: Automatically injects the currently selected key into the request's query parameters, removing the need to pass keys manually in the repository.
 
-### 3. UI Responsiveness
-- **Word Tap Debouncing**: Updated the [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt) to ignore word taps if a dictionary lookup is already active. This prevents accidental multiple requests from a single word tap.
-- **Friendly Feedback**: Mapped technical 429 errors to a concise, friendly message: *"Buddy is busy. Please wait a few seconds."*
+### 3. Smart Failover (Retry Logic)
+- **`RetryInterceptor.kt` Refinement**: When a `429 (Too Many Requests)` error is detected:
+    - The interceptor instantly triggers `ApiKeyProvider.nextKey()`.
+    - It retries the request with a new key with minimal delay (500ms).
+    - It continues rotating through the pool of keys until a success is reached or all keys are exhausted.
+- **Improved Model Stability**: Switched to `gemini-1.5-flash` to ensure compatibility with all API keys and projects.
+
+### 4. Code Cleanup
+- **Simplified API Service**: Removed the `apiKey` parameter from [GeminiApiService.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/GeminiApiService.kt), as it is now handled transparently by the network layer.
+- **Repository Optimization**: Reduced boilerplate in [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt).
 
 ## Changes at a Glance
 
-### [Component: Data & Repository]
-- [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt) (Deleted `generateAndSetSessionTitle`, added `generateLocalTitle`, pruned prompt)
-
 ### [Component: Network]
-- [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt) (Reduced retry delays)
+- [NEW] [ApiKeyProvider.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/ApiKeyProvider.kt)
+- [NEW] [ApiKeyInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/ApiKeyInterceptor.kt)
+- [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt)
+- [MODIFY] [NetworkClient.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/NetworkClient.kt)
 
-### [Component: UI]
-- [MODIFY] [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt) (Added tap debouncing)
+### [Component: Build]
+- [MODIFY] [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts) (Key field update + Model switch)
 
 ## Verification
 - Clean build: `./gradlew assembleDebug` passed.
-- Title generation verified: New chats correctly display titles like "Buying a car..." without any API delay.
+- Sequential key rotation logic verified.
+- Failover mechanism (switch key on 429) implemented.
 
-> [!TIP]
-> By eliminating redundant API calls, your free tier quota will now last twice as long!
+> [!IMPORTANT]
+> **Action Required**: Open your `local.properties` file and replace `GEMINI_API_KEY=...` with `GEMINI_API_KEYS=key1,key2,key3`. Add as many keys as you need to support your users!

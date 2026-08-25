@@ -1,8 +1,8 @@
-- [x] Optimize `RetryInterceptor.kt` (Lower delays)
-- [x] Refactor `ChatRepositoryImpl.kt`
-    - [x] Implement local title generation
-    - [x] Remove AI title call
-    - [x] Prune system prompt tokens
-- [x] Update `ChatScreen.kt` (Debounce word taps)
-- [x] Verify build and performance
-- [x] Atomic Commit
+- [x] Update `app/build.gradle.kts` for multi-key support
+- [x] Create `ApiKeyProvider.kt` for load balancing
+- [x] Refactor `GeminiApiService.kt` (remove manual key param)
+- [x] Update `RetryInterceptor.kt` to handle key rotation on 429
+- [x] Create `ApiKeyInterceptor.kt` for automatic key injection
+- [x] Update `NetworkClient.kt` to register new interceptors
+- [x] Refactor `ChatRepositoryImpl.kt` to use automatic key injection
+- [x] Verify build and functionality
