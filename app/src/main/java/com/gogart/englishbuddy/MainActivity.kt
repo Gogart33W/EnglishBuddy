@@ -14,8 +14,9 @@ import androidx.room.Room
 import com.gogart.englishbuddy.data.local.AppDatabase
 import com.gogart.englishbuddy.data.remote.NetworkClient
 import com.gogart.englishbuddy.data.repository.ChatRepositoryImpl
-import com.gogart.englishbuddy.ui.ChatScreen
+import com.gogart.englishbuddy.ui.MainScreen
 import com.gogart.englishbuddy.ui.theme.EnglishBuddyTheme
+import com.gogart.englishbuddy.util.PreferenceManager
 import com.gogart.englishbuddy.viewmodel.ChatViewModel
 
 class MainActivity : ComponentActivity() {
@@ -27,9 +28,19 @@ class MainActivity : ComponentActivity() {
                     applicationContext,
                     AppDatabase::class.java,
                     "english_buddy.db"
-                ).build()
-                val repository = ChatRepositoryImpl(NetworkClient.geminiApiService, db.chatMessageDao)
-                return ChatViewModel(repository) as T
+                ).fallbackToDestructiveMigration()
+                 .build()
+                val repository = ChatRepositoryImpl(
+                    NetworkClient.geminiApiService,
+                    db.chatMessageDao,
+                    db.chatSessionDao,
+                    db.mistakeDao,
+                    db.dictionaryDao,
+                    db.userProfileDao,
+                    db.dailyActivityDao
+                )
+                val prefs = PreferenceManager(applicationContext)
+                return ChatViewModel(repository, prefs) as T
             }
         }
     }
@@ -42,7 +53,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ChatScreen(viewModel = viewModel)
+                    MainScreen(viewModel = viewModel)
                 }
             }
         }

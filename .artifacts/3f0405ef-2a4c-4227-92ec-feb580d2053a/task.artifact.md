@@ -1,0 +1,20 @@
+- [x] Git History Cleanup
+    - [x] Perform `git reset --soft 07a4f37`
+- [x] Network Layer & Stabilization
+    - [x] Configure `OkHttpClient` with 60s timeouts in `NetworkClient.kt`
+    - [x] Update `GeminiApiService.kt` for dynamic model path
+- [x] Data & Domain Layer
+    - [x] Create `DailyActivityEntity.kt` and `DailyActivityDao.kt`
+    - [x] Update `UserProfileEntity.kt` with streak fields
+    - [x] Update `AppDatabase.kt` (v5 + Destructive migration)
+    - [x] Update `ChatRepository.kt` and `ChatRepositoryImpl.kt` (Strict Ukrainian + Smart Titles)
+- [x] UI Layer: Learning Tools
+    - [x] Enhance `MistakesScreen.kt` (Actions + Validation)
+    - [x] Create `PlacementTestScreen.kt`
+- [x] UI Layer: Gamification
+    - [x] Create `CalendarScreen.kt` (Activity grid + Streak flame)
+    - [x] Implement `ActivityTracker.kt` logic
+- [x] App Orchestration
+    - [x] Update `MainScreen.kt` (Add Calendar to Navigation)
+    - [x] Update `ChatViewModel.kt` (Activity tracking & Title generation logic)
+- [x] Build & Verification

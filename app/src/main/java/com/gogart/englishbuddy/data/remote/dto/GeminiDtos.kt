@@ -6,7 +6,45 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GeminiRequest(
     val contents: List<Content>,
-    val systemInstruction: SystemInstruction? = null
+    val systemInstruction: SystemInstruction? = null,
+    val generationConfig: GenerationConfig? = null
+)
+
+@Serializable
+data class GenerationConfig(
+    val responseMimeType: String? = null,
+    val responseSchema: ResponseSchema? = null
+)
+
+@Serializable
+data class ResponseSchema(
+    val type: String,
+    val properties: Map<String, ResponseSchemaProperty>? = null,
+    val required: List<String>? = null
+)
+
+@Serializable
+data class ResponseSchemaProperty(
+    val type: String,
+    val description: String? = null
+)
+
+@Serializable
+data class TutorResponse(
+    val hasCorrection: Boolean,
+    val errorOriginal: String? = null,
+    val errorCorrected: String? = null,
+    val errorExplanationUk: String? = null,
+    val tutorResponse: String,
+    val practicePrompt: String? = null
+)
+
+@Serializable
+data class DictionaryResponse(
+    val word: String,
+    val transcription: String,
+    val translation: String,
+    val example: String
 )
 
 @Serializable
