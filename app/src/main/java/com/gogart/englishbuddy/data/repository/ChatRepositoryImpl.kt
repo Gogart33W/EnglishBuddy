@@ -34,6 +34,19 @@ class ChatRepositoryImpl(
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    private val tutorResponseSchema = ResponseSchema(
+        type = "OBJECT",
+        properties = mapOf(
+            "hasCorrection" to ResponseSchemaProperty(type = "BOOLEAN"),
+            "errorOriginal" to ResponseSchemaProperty(type = "STRING"),
+            "errorCorrected" to ResponseSchemaProperty(type = "STRING"),
+            "errorExplanationUk" to ResponseSchemaProperty(type = "STRING"),
+            "tutorResponse" to ResponseSchemaProperty(type = "STRING"),
+            "practicePrompt" to ResponseSchemaProperty(type = "STRING")
+        ),
+        required = listOf("hasCorrection", "tutorResponse")
+    )
+
     override fun getSessions(): Flow<List<ChatSession>> = sessionDao.getAllSessions().map { entities ->
         entities.map { it.toDomain() }
     }
@@ -56,22 +69,18 @@ class ChatRepositoryImpl(
         }
     }
 
-    private fun getSystemInstruction(level: String) = SystemInstruction(
+    private fun getSystemInstruction(level: String, weaknesses: String) = SystemInstruction(
         parts = listOf(
             Part(
                 text = """
                     You are "Buddy", a proactive American English Teacher and Mentor.
                     The student's current English level is $level. Use vocabulary and grammar appropriate for this level.
                     
-                    Your output MUST be a valid JSON object matching this schema:
-                    {
-                      "hasCorrection": boolean,
-                      "errorOriginal": string or null,
-                      "errorCorrected": string or null,
-                      "errorExplanationUk": string or null,
-                      "tutorResponse": string (Your friendly conversational response),
-                      "practicePrompt": string or null (A brief practice exercise)
-                    }
+                    STUDENT WEAKNESSES TO TARGET:
+                    $weaknesses
+                    Subtly weave situations and practice questions into the conversation to test these specific concepts.
+                    
+                    Your output MUST be a valid JSON object matching the provided schema.
 
                     Role & Flow:
                     1. If the student makes a mistake, set hasCorrection to true and provide details.
@@ -93,6 +102,14 @@ class ChatRepositoryImpl(
         trackActivity(ActivityType.MESSAGE)
 
         val userLevel = userProfileDao.getUserProfile().first()?.cefrLevel ?: "A1"
+        
+        // Fetch Weaknesses
+        val topMistakes = mistakeDao.getTopWeaknesses(5)
+        val weaknesses = if (topMistakes.isEmpty()) {
+            "None yet. Focus on natural conversation."
+        } else {
+            topMistakes.joinToString("\n") { "- ${it.originalText} -> ${it.correctedText} (${it.explanation})" }
+        }
 
         return try {
             val history = chatDao.getMessagesBySession(sessionId).first()
@@ -103,8 +120,11 @@ class ChatRepositoryImpl(
                         parts = listOf(Part(text = message.content))
                     )
                 },
-                systemInstruction = getSystemInstruction(userLevel),
-                generationConfig = GenerationConfig(responseMimeType = "application/json")
+                systemInstruction = getSystemInstruction(userLevel, weaknesses),
+                generationConfig = GenerationConfig(
+                    responseMimeType = "application/json",
+                    responseSchema = tutorResponseSchema
+                )
             )
 
             val response = apiService.generateContent(
@@ -201,11 +221,36 @@ class ChatRepositoryImpl(
     override fun getSavedWords(): Flow<List<DictionaryEntity>> = dictionaryDao.getSavedWords()
     override suspend fun toggleSaveWord(word: String, isSaved: Boolean) = dictionaryDao.updateSavedStatus(word, isSaved)
     
-    override fun getMistakes(sessionId: Long?): Flow<List<MistakeEntity>> = if (sessionId != null) mistakeDao.getMistakesBySession(sessionId) else mistakeDao.getAllMistakes()
+    override fun getMistakes(sessionId: Long?): Flow<List<MistakeEntity>> {
+        val currentTime = System.currentTimeMillis()
+        return if (sessionId != null) {
+            mistakeDao.getMistakesBySession(sessionId)
+        } else {
+            mistakeDao.getDueMistakes(currentTime)
+        }
+    }
+
     override suspend fun deleteMistake(mistake: MistakeEntity) = mistakeDao.deleteMistake(mistake)
+
     override suspend fun resolveMistake(mistake: MistakeEntity) {
         trackActivity(ActivityType.MISTAKE_RESOLVED)
-        mistakeDao.deleteMistake(mistake)
+        
+        val newInterval = when (mistake.intervalDays) {
+            0 -> 1
+            1 -> 2
+            2 -> 4
+            4 -> 8
+            else -> 8
+        }
+        
+        val nextReview = System.currentTimeMillis() + (newInterval.toLong() * 24 * 60 * 60 * 1000)
+        val isMastered = newInterval >= 8
+        
+        mistakeDao.updateMistake(mistake.copy(
+            intervalDays = newInterval,
+            nextReviewTimestamp = nextReview,
+            isMastered = isMastered
+        ))
     }
 
     override fun getUserProfile(): Flow<UserProfileEntity?> = userProfileDao.getUserProfile()

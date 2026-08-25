@@ -25,5 +25,8 @@ data class MistakeEntity(
     val correctedText: String,
     val explanation: String,
     val timestamp: Long = System.currentTimeMillis(),
-    val repeatCount: Int = 1
+    val repeatCount: Int = 1,
+    val intervalDays: Int = 0,
+    val nextReviewTimestamp: Long = 0,
+    val isMastered: Boolean = false
 )

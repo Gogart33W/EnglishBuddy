@@ -1,46 +1,56 @@
-# Implementation Plan - Fix HTTP 429 (Rate Limiting)
+# Implementation Plan - Adaptive Learning & Spaced Repetition
 
-Implement a robust retry strategy and request smoothing to handle Gemini API rate limits (HTTP 429).
+Connect mistake tracking to Buddy's conversational memory, enforce strict JSON response schemas, and implement an SRS-based review system for errors.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Retry Strategy**: I will implement an exponential backoff starting at 2 seconds. In the worst case (3 retries), a single request might take up to ~15 seconds to complete. The "Send" button will remain disabled during this time.
+> **Database Migration**: I will update the Room database to version 6. This includes adding SRS fields (`intervalDays`, `nextReviewTimestamp`, `isMastered`) to the `mistakes` table. Existing mistakes will be reset to a 1-day interval.
 
 > [!NOTE]
-> **Sequential Requests**: Title generation will now happen only after Buddy's first response is successfully received, preventing two simultaneous hits to the API.
+> **Schema Enforcement**: By using Gemini's `responseSchema`, the AI will no longer "forget" to include specific fields or return invalid JSON, making the UI highly stable.
 
 ## Proposed Changes
 
-### 1. Network Layer (OkHttp)
+### 1. Data Layer (Mistakes & SRS)
 
-#### [NEW] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt)
-- Create a custom interceptor that:
-    - Detects `HTTP 429`.
-    - Reads `Retry-After` header (if available).
-    - Implements exponential backoff with jitter.
-    - Limits retries to 3 attempts.
+#### [MODIFY] [MistakeEntity.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/entity/MistakeEntity.kt)
+- Add `intervalDays: Int = 0`
+- Add `nextReviewTimestamp: Long = 0`
+- Add `isMastered: Boolean = false`
 
-#### [MODIFY] [NetworkClient.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/NetworkClient.kt)
-- Add the `RetryInterceptor` to the `OkHttpClient.Builder`.
+#### [MODIFY] [MistakeDao.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/dao/MistakeDao.kt)
+- Add `getTopWeaknesses(limit: Int)`: Fetch most frequent/recent mistakes for AI prompting.
+- Add `getDueMistakes(currentTime: Long)`: Fetch mistakes due for review (where `nextReviewTimestamp <= currentTime` and `!isMastered`).
+- Update queries to support SRS state updates.
 
-### 2. Repository Layer
+#### [MODIFY] [AppDatabase.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/AppDatabase.kt)
+- Increment version to 6 and apply destructive migration.
+
+### 2. Domain & Repository (Adaptive AI)
 
 #### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
-- **Request Smoothing**: Move `generateAndSetSessionTitle` call inside the `try` block, *after* receiving the candidate response from Gemini.
-- **Error Mapping**: Specifically catch `HttpException` with code 429 and return a specialized failure message: `"Buddy is a bit overwhelmed. Please wait 10-15 seconds and try again."`
+- **Strict Schema**: Define a `tutorResponseSchema` object using the `ResponseSchema` DTO and pass it in `GenerationConfig`.
+- **Adaptive Memory**: In `sendMessage`, query the top 5 weaknesses from `MistakeDao` and inject them into the system instruction.
+- **SRS Update**: Modify `resolveMistake` to implement doubling intervals (1 -> 2 -> 4 -> 8 days) and set the next review time.
 
-### 3. ViewModel Layer
+### 3. UI Layer (Mistakes Notebook)
 
 #### [MODIFY] [ChatViewModel.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/viewmodel/ChatViewModel.kt)
-- Ensure the error message from the repository is correctly propagated to the `uiState.error`.
+- Update `allMistakes` observation to filter for "Due" items only.
+
+#### [MODIFY] [MistakesScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MistakesScreen.kt)
+- Show a "No reviews due today" empty state if all mistakes are scheduled for the future or mastered.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `./gradlew assembleDebug` to ensure compilation.
+- Run `./gradlew assembleDebug` to verify KSP and Room schema generation.
 
 ### Manual Verification
-1. **Stress Test**: Rapidly send messages and verify the retry interceptor kicks in (can be seen in Logcat).
-2. **First Message**: Start a new chat, send a message, and verify that the title is generated *after* Buddy responds, rather than simultaneously.
-3. **User Message**: Verify that hitting the limit shows the friendly "Buddy is overwhelmed" message instead of a raw "HTTP 429".
+1. **Adaptive Prompting**: Send a message with a recurring mistake (e.g., using "go" instead of "went"). Verify Buddy mentions this rule in the conversational body later.
+2. **Strict Schema**: Verify (via logs or UI stability) that Buddy's JSON responses always follow the expected structure.
+3. **SRS Loop**:
+    - Resolve a mistake in the Notebook.
+    - Verify it disappears from the "Due" list.
+    - Manually adjust system time (if possible) or check DB to verify `nextReviewTimestamp` is set correctly for 2 days later.

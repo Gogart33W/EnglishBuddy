@@ -1,5 +1,15 @@
-- [x] Implement `RetryInterceptor.kt` for HTTP 429 handling
-- [x] Add interceptor to `NetworkClient.kt`
-- [x] Sequentialize title generation in `ChatRepositoryImpl.kt`
-- [x] Update error handling for 429 in `ChatRepositoryImpl.kt`
-- [x] Verify build and functionality
+- [ ] Data Layer (SRS Metadata)
+    - [ ] Update `MistakeEntity.kt` with SRS fields
+    - [ ] Update `MistakeDao.kt` with Due/Weakness queries
+    - [ ] Update `AppDatabase.kt` (v6 + Destructive migration)
+- [ ] AI Integration (Adaptive Memory)
+    - [ ] Define `tutorResponseSchema` in `ChatRepositoryImpl.kt`
+    - [ ] Update `sendMessage` to inject top weaknesses into system prompt
+    - [ ] Enforce strict JSON schema in `apiService` calls
+- [ ] SRS Logic
+    - [ ] Update `resolveMistake` in `ChatRepositoryImpl.kt` with interval doubling
+- [ ] UI & ViewModel Updates
+    - [ ] Filter `allMistakes` by due date in `ChatViewModel.kt`
+    - [ ] Update `MistakesScreen.kt` empty state ("No reviews due")
+- [ ] Build & Verification
+- [ ] Atomic Commit

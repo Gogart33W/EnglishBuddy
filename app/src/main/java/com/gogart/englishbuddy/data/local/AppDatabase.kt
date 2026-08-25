@@ -14,7 +14,7 @@ import com.gogart.englishbuddy.data.local.entity.*
         UserProfileEntity::class,
         DailyActivityEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

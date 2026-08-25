@@ -35,7 +35,25 @@ fun MistakesScreen(viewModel: ChatViewModel) {
     ) { padding ->
         if (uiState.allMistakes.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No mistakes tracked yet. Keep chatting!", style = MaterialTheme.typography.bodyLarge)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "No reviews due today!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        "You've cleared your notebook. Great job!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
             }
         } else {
             LazyColumn(

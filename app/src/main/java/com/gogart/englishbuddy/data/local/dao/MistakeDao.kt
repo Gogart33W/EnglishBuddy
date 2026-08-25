@@ -9,11 +9,17 @@ interface MistakeDao {
     @Query("SELECT * FROM mistakes WHERE sessionId = :sessionId ORDER BY timestamp DESC")
     fun getMistakesBySession(sessionId: Long): Flow<List<MistakeEntity>>
 
-    @Query("SELECT * FROM mistakes ORDER BY timestamp DESC")
-    fun getAllMistakes(): Flow<List<MistakeEntity>>
+    @Query("SELECT * FROM mistakes WHERE nextReviewTimestamp <= :currentTime AND isMastered = 0 ORDER BY timestamp DESC")
+    fun getDueMistakes(currentTime: Long): Flow<List<MistakeEntity>>
+
+    @Query("SELECT * FROM mistakes ORDER BY repeatCount DESC, timestamp DESC LIMIT :limit")
+    suspend fun getTopWeaknesses(limit: Int): List<MistakeEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMistake(mistake: MistakeEntity)
+
+    @Update
+    suspend fun updateMistake(mistake: MistakeEntity)
 
     @Query("SELECT * FROM mistakes WHERE sessionId = :sessionId AND originalText = :original AND correctedText = :corrected LIMIT 1")
     suspend fun findMistake(sessionId: Long, original: String, corrected: String): MistakeEntity?
