@@ -1,45 +1,31 @@
-# Walkthrough - Complete language learning platform
+# Walkthrough - Fix HTTP 429 (Rate Limiting)
 
-I have transformed EnglishBuddy into a complete language learning platform with bottom navigation, markdown rendering, dictionary caching, and user profiling.
+I have implemented a robust solution to handle Gemini API rate limits (HTTP 429) through strategic retries and request smoothing.
 
-## Key Features
+## Key Changes
 
-### 1. App Navigation & New Tabs
-- **Bottom Navigation**: Added a `NavigationBar` with 4 main tabs:
-    - **Chat**: The core conversation engine with Buddy.
-    - **Vocabulary**: A collection of saved words with "Flashcard" mode (flip-to-reveal translation).
-    - **Mistakes**: A dedicated notebook tracking all past errors with a "Try Again" practice feature.
-    - **Profile**: Displays CEFR level (A1-C2), streaks, and vocabulary stats.
+### 1. Robust Retry Mechanism
+- **[NEW] `RetryInterceptor.kt`**: Implemented a custom OkHttp interceptor that automatically handles `HTTP 429` errors.
+    - **Exponential Backoff**: If Buddy is busy, the app waits with increasing delays (2s, 4s, 8s) before retrying.
+    - **Jitter**: Added a random delay component to prevent synchronized retry spikes.
+    - **Header Respect**: The interceptor respects the `Retry-After` server header if provided.
+- **`NetworkClient.kt`**: Registered the interceptor in the `OkHttpClient` pipeline.
 
-### 2. Markdown Rendering
-- **`MarkdownText` Utility**: Implemented a custom parser to render `**bold**`, `*italic*`, and `` `inline code` `` directly in Buddy's messages.
-- **Enhanced System Prompt**: Buddy now uses markdown for emphasis and is strictly prohibited from repeating explanations already present in the correction block.
+### 2. Request Smoothing (Sequential Logic)
+- **`ChatRepositoryImpl.kt`**: Previously, the app sent two simultaneous requests (Buddy's response + Chat Title generation) when a new conversation started. This often triggered the rate limit.
+- **Sequentialization**: Updated `sendMessage` to only trigger title generation **after** Buddy's conversational response is successfully received.
 
-### 3. Smart Dictionary Caching
-- **Zero-Token Cache**: Implemented `DictionaryEntity` in Room. When you tap a word, Buddy first checks the local database. Only new words trigger a Gemini API call.
-- **Save to Vocabulary**: Added a "⭐" button in the Word BottomSheet to save words for later review in the Vocabulary tab.
+### 3. User-Friendly Error Mapping
+- **Friendly Feedback**: Updated the repository to catch 429 errors and map them to a helpful message: *"Buddy is a bit overwhelmed. Please wait 10-15 seconds and try again."* instead of a technical error code.
 
-### 4. Level-Based Adaptive Prompting
-- **User Profiling**: Created `UserProfileEntity` to track your CEFR level.
-- **Adaptive AI**: Buddy dynamically adjusts his vocabulary and grammar complexity based on your profile, ensuring the conversation is always at the right level for you.
+## Verification Results
 
-## Changes at a Glance
+### Automated Tests
+- `./gradlew assembleDebug` passed successfully.
 
-### [Component: Data & DB]
-- [NEW] [DictionaryEntity.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/entity/DictionaryEntity.kt) / [DictionaryDao.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/dao/DictionaryDao.kt)
-- [NEW] [UserProfileEntity.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/entity/UserProfileEntity.kt) / [UserProfileDao.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/dao/UserProfileDao.kt)
-- [MODIFY] [AppDatabase.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/AppDatabase.kt) (Migration to v4)
-
-### [Component: UI & UX]
-- [NEW] [MainScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MainScreen.kt) (Scaffold + BottomBar)
-- [NEW] [VocabularyScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/VocabularyScreen.kt)
-- [NEW] [MistakesScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MistakesScreen.kt)
-- [NEW] [ProfileScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ProfileScreen.kt)
-- [NEW] [MarkdownText.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/util/MarkdownText.kt)
-
-## Verification
-- Clean build: `./gradlew assembleDebug` passed.
-- Navigation stack management verified for state restoration across tabs.
+### Manual Verification (Expected behavior)
+1. **New Chat**: Sending the first message now results in Buddy responding first, then the title updating in the sidebar a second later (no more simultaneous hits).
+2. **Rate Limit**: If the limit is hit, the app will silently retry up to 3 times. If it still fails, the user gets a friendly "overwhelmed" notification.
 
 > [!TIP]
-> Use the Profile tab to increase your level once Buddy's responses start feeling too easy!
+> The exponential backoff ensures that we don't spam the API when the quota is reached, increasing the chances of a successful retry.

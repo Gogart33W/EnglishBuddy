@@ -92,27 +92,21 @@ class ChatRepositoryImpl(
         
         trackActivity(ActivityType.MESSAGE)
 
-        val history = chatDao.getMessagesBySession(sessionId).first()
-        
-        // Smart Title Generation
-        if (history.size == 1) {
-            generateAndSetSessionTitle(sessionId, content)
-        }
-
         val userLevel = userProfileDao.getUserProfile().first()?.cefrLevel ?: "A1"
 
-        val request = GeminiRequest(
-            contents = history.takeLast(15).map { message ->
-                Content(
-                    role = if (message.role == "USER") "user" else "model",
-                    parts = listOf(Part(text = message.content))
-                )
-            },
-            systemInstruction = getSystemInstruction(userLevel),
-            generationConfig = GenerationConfig(responseMimeType = "application/json")
-        )
-
         return try {
+            val history = chatDao.getMessagesBySession(sessionId).first()
+            val request = GeminiRequest(
+                contents = history.takeLast(15).map { message ->
+                    Content(
+                        role = if (message.role == "USER") "user" else "model",
+                        parts = listOf(Part(text = message.content))
+                    )
+                },
+                systemInstruction = getSystemInstruction(userLevel),
+                generationConfig = GenerationConfig(responseMimeType = "application/json")
+            )
+
             val response = apiService.generateContent(
                 model = BuildConfig.GEMINI_MODEL,
                 apiKey = BuildConfig.GEMINI_API_KEY,
@@ -129,9 +123,21 @@ class ChatRepositoryImpl(
                 val modelMessage = ChatMessage(sessionId = sessionId, content = jsonResponse, role = MessageRole.MODEL)
                 chatDao.insertMessage(modelMessage.toEntity())
                 sessionDao.updateSessionTimestamp(sessionId)
+
+                // Smart Title Generation: ONLY after Buddy's first response
+                if (history.size == 1) {
+                    generateAndSetSessionTitle(sessionId, content)
+                }
+
                 Result.success(Unit)
             } else {
                 Result.failure(Exception("Empty response"))
+            }
+        } catch (e: HttpException) {
+            if (e.code() == 429) {
+                Result.failure(Exception("Buddy is a bit overwhelmed. Please wait 10-15 seconds and try again."))
+            } else {
+                Result.failure(e)
             }
         } catch (e: Exception) {
             Result.failure(e)

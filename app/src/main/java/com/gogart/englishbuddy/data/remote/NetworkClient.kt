@@ -16,6 +16,7 @@ object NetworkClient {
     }
 
     private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor(RetryInterceptor())
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
