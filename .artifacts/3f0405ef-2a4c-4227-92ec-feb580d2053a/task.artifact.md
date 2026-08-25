@@ -1,10 +1,8 @@
-- [x] Fix Dictionary Translation
-    - [x] Define `dictionaryResponseSchema` in `ChatRepositoryImpl.kt`
-    - [x] Update `getWordDefinition` to use the schema and strict JSON mode
-- [x] Implement Database Migrations
-    - [x] Update `AppDatabase.kt` to version 7
-    - [x] Define `MIGRATION_6_7` in `AppDatabase.kt`
-    - [x] Remove `fallbackToDestructiveMigration()` in `MainActivity.kt`
-    - [x] Add the migration to the Room builder in `MainActivity.kt`
-- [x] Verify build and functionality
+- [x] Optimize `RetryInterceptor.kt` (Lower delays)
+- [x] Refactor `ChatRepositoryImpl.kt`
+    - [x] Implement local title generation
+    - [x] Remove AI title call
+    - [x] Prune system prompt tokens
+- [x] Update `ChatScreen.kt` (Debounce word taps)
+- [x] Verify build and performance
 - [x] Atomic Commit

@@ -221,9 +221,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                                 message = message,
                                 isSpeaking = activeSpeakingMessageId == message.id,
                                 onWordClick = { word ->
-                                    selectedWord = word
-                                    viewModel.fetchWordDefinition(word)
-                                    showSheet = true
+                                    if (!uiState.isDictionaryLoading) {
+                                        selectedWord = word
+                                        viewModel.fetchWordDefinition(word)
+                                        showSheet = true
+                                    }
                                 },
                                 onToggleSpeak = { text ->
                                     if (activeSpeakingMessageId == message.id) {

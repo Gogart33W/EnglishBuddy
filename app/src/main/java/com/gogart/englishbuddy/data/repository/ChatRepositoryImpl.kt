@@ -84,22 +84,17 @@ class ChatRepositoryImpl(
         parts = listOf(
             Part(
                 text = """
-                    You are "Buddy", a proactive American English Teacher and Mentor.
-                    The student's current English level is $level. Use vocabulary and grammar appropriate for this level.
+                    You are "Buddy", a proactive American English Teacher.
+                    Level: $level.
+                    WEAKNESSES: $weaknesses
                     
-                    STUDENT WEAKNESSES TO TARGET:
-                    $weaknesses
-                    Subtly weave situations and practice questions into the conversation to test these specific concepts.
-                    
-                    Your output MUST be a valid JSON object matching the provided schema.
-
-                    Role & Flow:
-                    1. If the student makes a mistake, set hasCorrection to true and provide details.
-                    2. If you provide a correction, do NOT repeat the explanation or correction in the tutorResponse. Keep tutorResponse strictly conversational.
-                    3. Actively guide the learning lesson.
-                    4. CRITICAL: All vocabulary translations in brackets [...] MUST be strictly in UKRAINIAN (Українська мова). Never output Russian words (e.g. use [видаляти], NOT [удалять]).
-                    5. Keep tutorResponse brief (1-2 sentences + 1 engaging question).
-                    6. Rule 1 (Strict Language Focus): Pivot non-language tasks back to English conversation.
+                    Rules:
+                    1. Output valid JSON per schema.
+                    2. If student makes an error, set hasCorrection: true.
+                    3. Do NOT repeat correction details in tutorResponse.
+                    4. UKRAINIAN translations in brackets [...] for difficult words.
+                    5. Keep tutorResponse brief (1-2 sentences + 1 question).
+                    6. Never solve non-language tasks; pivot to English conversation.
                 """.trimIndent()
             )
         )
@@ -116,16 +111,18 @@ class ChatRepositoryImpl(
         
         // Fetch Weaknesses
         val topMistakes = mistakeDao.getTopWeaknesses(5)
-        val weaknesses = if (topMistakes.isEmpty()) {
-            "None yet. Focus on natural conversation."
-        } else {
-            topMistakes.joinToString("\n") { "- ${it.originalText} -> ${it.correctedText} (${it.explanation})" }
-        }
+        val weaknesses = if (topMistakes.isEmpty()) "None" else topMistakes.joinToString(", ") { "${it.originalText}->${it.correctedText}" }
 
         return try {
             val history = chatDao.getMessagesBySession(sessionId).first()
+            
+            // Local Title Generation: Save 1 API call
+            if (history.size == 1) {
+                generateLocalTitle(sessionId, content)
+            }
+
             val request = GeminiRequest(
-                contents = history.takeLast(15).map { message ->
+                contents = history.takeLast(10).map { message ->
                     Content(
                         role = if (message.role == "USER") "user" else "model",
                         parts = listOf(Part(text = message.content))
@@ -155,18 +152,13 @@ class ChatRepositoryImpl(
                 chatDao.insertMessage(modelMessage.toEntity())
                 sessionDao.updateSessionTimestamp(sessionId)
 
-                // Smart Title Generation: ONLY after Buddy's first response
-                if (history.size == 1) {
-                    generateAndSetSessionTitle(sessionId, content)
-                }
-
                 Result.success(Unit)
             } else {
                 Result.failure(Exception("Empty response"))
             }
         } catch (e: HttpException) {
             if (e.code() == 429) {
-                Result.failure(Exception("Buddy is a bit overwhelmed. Please wait 10-15 seconds and try again."))
+                Result.failure(Exception("Buddy is busy. Please wait a few seconds."))
             } else {
                 Result.failure(e)
             }
@@ -175,19 +167,14 @@ class ChatRepositoryImpl(
         }
     }
 
-    private suspend fun generateAndSetSessionTitle(sessionId: Long, firstMessage: String) {
-        val request = GeminiRequest(
-            contents = listOf(Content(role = "user", parts = listOf(Part(text = "Generate a short (2-4 words) human title for a conversation starting with: '$firstMessage'")))),
-            systemInstruction = SystemInstruction(parts = listOf(Part(text = "Return ONLY a plain text title, no JSON, no quotes.")))
-        )
-        try {
-            val response = apiService.generateContent(model = BuildConfig.GEMINI_MODEL, apiKey = BuildConfig.GEMINI_API_KEY, request = request)
-            val title = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
-            if (!title.isNullOrEmpty()) {
-                updateSessionTitle(sessionId, title)
-            }
-        } catch (e: Exception) {
-            Log.e("ChatRepo", "Title generation failed", e)
+    private suspend fun generateLocalTitle(sessionId: Long, firstMessage: String) {
+        val words = firstMessage.trim().split(Regex("\\s+"))
+            .take(4)
+            .joinToString(" ") { it.replace(Regex("[^a-zA-Z0-9]"), "") }
+            .replaceFirstChar { it.uppercase() }
+        
+        if (words.isNotEmpty()) {
+            updateSessionTitle(sessionId, if (words.length > 25) words.take(22) + "..." else words)
         }
     }
 

@@ -8,7 +8,7 @@ import kotlin.random.Random
 
 class RetryInterceptor : Interceptor {
     private val maxRetries = 3
-    private val initialDelayMillis = 2000L
+    private val initialDelayMillis = 1000L
 
     override fun intercept(chain: Interceptor.Chain): Response {
         var request = chain.request()

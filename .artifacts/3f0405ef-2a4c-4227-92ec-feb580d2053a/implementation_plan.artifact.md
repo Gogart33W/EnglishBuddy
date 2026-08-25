@@ -1,46 +1,33 @@
-# Implementation Plan - Fix Dictionary & Database Migrations
+# Implementation Plan - Performance Optimization & Rate Limit Mitigation
 
-Resolve the dictionary translation issue and implement a stable Room migration strategy to prevent data loss.
-
-## User Review Required
-
-> [!IMPORTANT]
-> **Database Migration**: I will move to Room version 7 and provide a proper `Migration` object. This will stop the "auto-reset" behavior you're seeing. However, if you've already had a reset to v6, those old messages are gone. This fix ensures it doesn't happen *again*.
-
-> [!NOTE]
-> **Dictionary Fix**: The dictionary failure is likely due to the strict `responseMimeType = "application/json"` without a corresponding `responseSchema` in the dictionary request. I will explicitly define the dictionary schema to match the `TutorResponse` logic.
+Reduce Gemini API load by eliminating redundant calls and optimizing prompt token usage.
 
 ## Proposed Changes
 
-### 1. Data Layer (Room Migrations)
-
-#### [MODIFY] [AppDatabase.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/local/AppDatabase.kt)
-- Increment version to 7.
-- Define `MIGRATION_6_7`.
-- Remove `fallbackToDestructiveMigration()` in `MainActivity`.
-
-#### [MODIFY] [MainActivity.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/MainActivity.kt)
-- Update Room builder to use the migration object.
-
-### 2. Repository Layer (Dictionary Fix)
+### 1. Repository Layer (Optimization)
 
 #### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
-- **Schema Enforcement**: Define `dictionaryResponseSchema` and pass it in the `getWordDefinition` request.
-- **Robustness**: Add logging to dictionary failures to track exact JSON parsing errors.
+- **Delete `generateAndSetSessionTitle`**: Stop using Gemini to generate conversation titles. This saves 1 API call for every new chat.
+- **New Local Title Logic**: Implement `generateLocalTitle(message: String)` which takes the first 4-5 words of the user message, cleans punctuation, and capitalizes it.
+- **Prompt Pruning**: Slightly condense the system instruction to reduce token overhead.
 
-### 3. UI Layer (UX Refinement)
+### 2. Network Layer (Retry Refinement)
+
+#### [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt)
+- **Reduce Backoff**: Change initial delay from 2s to 1s. The current 2-4-8 progression makes the "long wait" feel like the app is hung.
+- **Max Retries**: Keep it at 3, but with the faster progression (1s, 2s, 4s).
+
+### 3. UI Layer (UX)
 
 #### [MODIFY] [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt)
-- Improve the dictionary loading state visibility.
+- **Word Tap Debounce**: Ensure that if a dictionary lookup is already in progress, tapping another word doesn't fire a new request.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `./gradlew assembleDebug` to verify KSP and migration code.
+- Run `./gradlew assembleDebug` to ensure compilation.
 
 ### Manual Verification
-1. **Dictionary**: Tap a word in the chat. Verify the loader appears and then the translation/transcription/example are displayed correctly.
-2. **Migrations**:
-   - Add a few messages and a saved word.
-   - Deploy a small change to a DAO (without schema change).
-   - Verify that existing data persists after the app restarts.
+1. **Speed**: Start a new chat and verify Buddy responds noticeably faster (due to 1 request instead of 2).
+2. **Titles**: Verify the drawer shows a readable title generated from your first message.
+3. **Rate Limits**: Stress-test by sending messages; verify the app handles 429s more gracefully with shorter waits.
