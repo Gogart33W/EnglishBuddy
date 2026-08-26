@@ -31,7 +31,7 @@ android {
         }
         val geminiApiKeys = properties.getProperty("GEMINI_API_KEYS") ?: ""
         buildConfigField("String", "GEMINI_API_KEYS", "\"$geminiApiKeys\"")
-        buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash-lite\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash\"")
     }
 
     buildTypes {

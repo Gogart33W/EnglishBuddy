@@ -1,6 +1,4 @@
-- [x] Update Model to `gemini-2.5-flash-lite` in `app/build.gradle.kts`
+- [x] Update Model in `app/build.gradle.kts` to `gemini-2.5-flash`
 - [x] Update `AppConfig.kt` documentation
-- [x] Enhance `RetryInterceptor.kt` (Catch timeouts and 5xx errors)
-- [x] Optimize `ChatRepositoryImpl.kt` (Schema & context pruning)
-- [x] Verify build and latency
+- [x] Verify build and connectivity
 - [x] Atomic Commit

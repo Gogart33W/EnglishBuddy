@@ -1,44 +1,29 @@
-# Implementation Plan - Performance & Timeout Fix
+# Implementation Plan - Fix 404 & Model ID Correction
 
-Address the long thinking times and timeouts by switching to a more optimized model, refining the retry logic, and increasing network resilience.
+Resolve the 404 error by reverting the model ID to the working version (`gemini-2.5-flash`) and refining the configuration notes.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Model Switch**: I am switching from `gemini-3.5-flash-lite` to **`gemini-2.5-flash-lite`**. Based on my latest research, 3.5 might be unstable or non-existent in your current project region. `2.5-flash-lite` is designed specifically for ultra-low latency and is less likely to timeout.
-
-> [!WARNING]
-> **Retry Overload**: If you have many API keys from the *same* project, they share a "Daily Limit" (RPD). If you've reached 30/20 RPD as shown in your screenshot, ALL keys in that project will fail until tomorrow. If your keys are from different projects, the rotation will work perfectly.
+> **Model Correction**: I mistakenly added the `-lite` suffix in the previous update. Based on your console screenshot, the correct model ID is **`gemini-2.5-flash`**. Reverting to this will fix the 404 error.
 
 ## Proposed Changes
 
-### 1. Build & Config
+### 1. Build Configuration
 
 #### [MODIFY] [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts)
-- Update `GEMINI_MODEL` to `"gemini-2.5-flash-lite"`.
+- Change `GEMINI_MODEL` back to `"gemini-2.5-flash"`.
+
+### 2. Config Refinement
 
 #### [MODIFY] [AppConfig.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/util/AppConfig.kt)
-- Update the documentation comments to reflect the switch to `2.5-flash-lite`.
-
-### 2. Network Layer (Resilience)
-
-#### [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt)
-- **Catch Timeouts**: Update the interceptor to catch `SocketTimeoutException` and try the next API key instead of just failing.
-- **Retry on 5xx**: Add retries for `500`, `502`, and `503` errors, as these are often transient server-side hiccups.
-- **Fast Fail**: If a key returns a terminal error (like 401 or 403), stop using it for the current session.
-
-### 3. Repository Layer (Optimization)
-
-#### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
-- **Simplify Schema**: Ensure the `ResponseSchema` is as lightweight as possible to reduce "reasoning" time on the server.
-- **Context Pruning**: Verify history context is strictly limited to ensure the fastest possible inference.
+- Update documentation to reflect that `gemini-2.5-flash` is the primary stable model for your keys.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `./gradlew assembleDebug` to verify compilation.
+- Run `./gradlew assembleDebug` and sync project.
 
 ### Manual Verification
-1. **Speed**: Send a message and measure the "thinking" time. It should be significantly faster with the `flash-lite` model.
-2. **Timeout Handling**: (Simulated) Verify that if one key is slow/timed out, the app rotates to the next one automatically.
-3. **Connectivity**: Verify the 404/429/Timeout cycle is broken and Buddy responds consistently.
+1. **Chat**: Send a message and verify Buddy responds (404 should be gone).
+2. **Rotation**: With your 5 keys active, verify Buddy handles messages smoothly even if individual keys hit limits occasionally.
