@@ -146,6 +146,30 @@ class ChatViewModel(
     }
 
     fun fetchWordDefinition(word: String) {
+        if (_uiState.value.isDictionaryLoading) return
+        
+        val normalized = word.trim().lowercase()
+        
+        // Local Stop-word filter to save tokens and time
+        val stopWords = mapOf(
+            "the" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("the", "/ðə/", "артикль (означений)", "The book is on the table."),
+            "a" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("a", "/ə/", "артикль (неозначений)", "I have a pen."),
+            "an" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("an", "/ən/", "артикль (неозначений)", "He ate an apple."),
+            "is" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("is", "/ɪz/", "є / знаходиться", "She is a student."),
+            "are" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("are", "/ɑːr/", "є / знаходяться", "They are friends."),
+            "am" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("am", "/æm/", "є", "I am happy."),
+            "i" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("i", "/aɪ/", "я", "I like English."),
+            "you" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("you", "/juː/", "ти / ви", "You are welcome."),
+            "and" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("and", "/ænd/", "і / та", "Black and white."),
+            "in" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("in", "/ɪn/", "в / у", "In the room."),
+            "on" to com.gogart.englishbuddy.data.remote.dto.DictionaryResponse("on", "/ɒn/", "на", "On the street.")
+        )
+
+        if (stopWords.containsKey(normalized)) {
+            _uiState.update { it.copy(wordDefinition = stopWords[normalized]) }
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isDictionaryLoading = true, wordDefinition = null) }
             val result = repository.getWordDefinition(word)

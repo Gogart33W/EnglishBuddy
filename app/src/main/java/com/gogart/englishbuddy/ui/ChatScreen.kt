@@ -493,9 +493,15 @@ fun InteractiveText(
                 val cleanWord = word.trim().filter { it.isLetterOrDigit() }
                 Text(
                     text = word,
-                    modifier = Modifier.clickable { 
-                        if (cleanWord.isNotEmpty()) onWordClick(cleanWord) 
-                    },
+                    modifier = Modifier
+                        .background(
+                            if (cleanWord.isNotEmpty()) MaterialTheme.colorScheme.primary.copy(alpha = 0.05f) 
+                            else Color.Transparent, 
+                            RoundedCornerShape(4.dp)
+                        )
+                        .clickable { 
+                            if (cleanWord.isNotEmpty()) onWordClick(cleanWord) 
+                        },
                     style = style
                 )
             }

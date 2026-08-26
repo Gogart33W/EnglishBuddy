@@ -1,40 +1,45 @@
-# Implementation Plan - Fix 404 & Model Refactoring
+# Implementation Plan - UI Polish & Dictionary Optimization
 
-Address the 404 error by switching to a more stable model (`gemini-3.5-flash-lite`) and refactoring the configuration into a Kotlin object to prevent future regressions.
+Address UI wrapping issues, improve empty states, make interactive elements more discoverable, and optimize dictionary token usage.
 
 ## User Review Required
 
-> [!IMPORTANT]
-> **Model Switch**: I am switching the model to `gemini-3.5-flash-lite` as suggested by your external analysis. This model is reported to be more stable and long-lived.
-
 > [!NOTE]
-> **Configuration Refactoring**: I will move the model and API configuration from `build.gradle.kts` into a dedicated `AppConfig` Kotlin object. This provides a single source of truth that is easier to inspect and maintain without needing a full build to see what's being used.
+> **Label Change**: I will shorten "Vocabulary" to "Vocab" in the Bottom Navigation bar to prevent text wrapping and clipping on smaller screens.
+
+> [!TIP]
+> **Stop-Word Filter**: To save tokens, I will implement a local filter for common "stop words" (e.g., "a", "the", "is"). Tapping these will show a local definition instead of calling the Gemini API.
 
 ## Proposed Changes
 
-### 1. Build Configuration
+### 1. UI Layer (Navigation & Layout)
 
-#### [MODIFY] [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts)
-- Update `GEMINI_MODEL` to `"gemini-3.5-flash-lite"`.
+#### [MODIFY] [MainScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MainScreen.kt)
+- Shorten `Screen.Vocabulary` label from "Vocabulary" to "Vocab".
 
-### 2. Code Refactoring (Config Management)
+#### [MODIFY] [VocabularyScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/VocabularyScreen.kt)
+- Fix the empty state `Box` to correctly use `fillMaxSize()` relative to the scaffold's content area.
+- Add an icon to the empty state for better visual balance.
 
-#### [NEW] [AppConfig.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/util/AppConfig.kt)
-- Create an `AppConfig` object.
-- Store `MODEL_NAME` (mapping to `BuildConfig.GEMINI_MODEL`).
-- Add comments with model expiration dates and links to Google AI Studio documentation to serve as a "trigger" for future updates.
+### 2. UI Layer (Chat & Discoverability)
 
-### 3. Repository Layer
+#### [MODIFY] [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt)
+- **`InteractiveText`**: Add a subtle visual hint (e.g., a very light background or a dashed bottom border) to clickable words so the user knows they can be tapped.
+- **`WordDetailContent`**: Improve the layout to ensure it's perfectly centered and polished.
 
-#### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
-- Use `AppConfig.MODEL_NAME` instead of `BuildConfig.GEMINI_MODEL` directly.
+### 3. Optimization & Performance
+
+#### [MODIFY] [ChatViewModel.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/viewmodel/ChatViewModel.kt)
+- **Local Pre-check**: Implement a local check for very common words (articles, pronouns). If a user taps "the", show a hardcoded definition to save API costs and time.
+- **Loading Lock**: Ensure multiple simultaneous taps on the same word don't trigger redundant API calls.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `./gradlew assembleDebug` to ensure the new model name and `AppConfig` are correctly integrated.
+- Run `./gradlew assembleDebug` to verify no regressions.
 
 ### Manual Verification
-1. **Connectivity**: Send a message to Buddy and verify that the 404 error is gone and a valid response is received.
-2. **Dictionary**: Tap a word and verify the definition still works with the new model.
-3. **Logs**: Check for any successful API requests to `gemini-3.5-flash-lite`.
+1. **Bottom Bar**: Check that "Vocab" fits perfectly on one line.
+2. **Empty State**: Open Vocabulary with no words; verify the message is centered and not cropped.
+3. **Word Tapping**: Verify that words in Buddy's messages have a subtle visual indicator.
+4. **Token Savings**: Tap "the" and "a"; verify (via Logcat) that no API call is made.

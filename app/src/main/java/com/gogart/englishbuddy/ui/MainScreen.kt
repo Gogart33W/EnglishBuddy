@@ -21,7 +21,7 @@ import com.gogart.englishbuddy.viewmodel.ChatViewModel
 
 sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Chat : Screen("chat", "Chat", Icons.AutoMirrored.Filled.Chat)
-    object Vocabulary : Screen("vocabulary", "Vocabulary", Icons.Default.Book)
+    object Vocabulary : Screen("vocabulary", "Vocab", Icons.Default.Book)
     object Mistakes : Screen("mistakes", "Mistakes", Icons.Default.Error)
     object Calendar : Screen("calendar", "Calendar", Icons.Default.CalendarMonth)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)

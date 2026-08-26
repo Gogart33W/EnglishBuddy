@@ -1,5 +1,13 @@
-- [x] Update Model in `app/build.gradle.kts`
-- [x] Create `AppConfig.kt` for centralized configuration
-- [x] Update `ChatRepositoryImpl.kt` to use `AppConfig`
-- [x] Verify build and connectivity
+- [x] UI Polish: Navigation & Labels
+    - [x] Shorten "Vocabulary" to "Vocab" in `MainScreen.kt`
+- [x] UI Polish: Vocabulary Screen
+    - [x] Fix empty state centering and add icon
+- [x] UI Polish: Chat & Discoverability
+    - [x] Add visual tap indicator for interactive words in `ChatScreen.kt`
+- [x] Optimization: Dictionary Logic
+    - [x] Implement local "Stop-word" filter in `ChatViewModel.kt`
+    - [x] Add Loading Lock to prevent redundant API calls
+- [x] Speed & Asynchrony Audit
+    - [x] Ensure non-blocking state updates
+- [x] Verify build and performance
 - [x] Atomic Commit
