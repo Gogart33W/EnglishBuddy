@@ -15,6 +15,7 @@ import com.gogart.englishbuddy.domain.model.ChatSession
 import com.gogart.englishbuddy.domain.model.MessageRole
 import com.gogart.englishbuddy.domain.repository.ActivityType
 import com.gogart.englishbuddy.domain.repository.ChatRepository
+import com.gogart.englishbuddy.util.AppConfig
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
@@ -136,7 +137,7 @@ class ChatRepositoryImpl(
             )
 
             val response = apiService.generateContent(
-                model = BuildConfig.GEMINI_MODEL,
+                model = AppConfig.MODEL_NAME,
                 request = request
             )
             val jsonResponse = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
@@ -206,7 +207,7 @@ class ChatRepositoryImpl(
         )
 
         return try {
-            val response = apiService.generateContent(model = BuildConfig.GEMINI_MODEL, request = request)
+            val response = apiService.generateContent(model = AppConfig.MODEL_NAME, request = request)
             val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
             if (text != null) {
                 val dictResp = json.decodeFromString<DictionaryResponse>(text)

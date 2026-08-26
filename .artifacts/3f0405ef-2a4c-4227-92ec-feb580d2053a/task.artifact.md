@@ -1,8 +1,5 @@
-- [x] Update `app/build.gradle.kts` for multi-key support
-- [x] Create `ApiKeyProvider.kt` for load balancing
-- [x] Refactor `GeminiApiService.kt` (remove manual key param)
-- [x] Update `RetryInterceptor.kt` to handle key rotation on 429
-- [x] Create `ApiKeyInterceptor.kt` for automatic key injection
-- [x] Update `NetworkClient.kt` to register new interceptors
-- [x] Refactor `ChatRepositoryImpl.kt` to use automatic key injection
-- [x] Verify build and functionality
+- [x] Update Model in `app/build.gradle.kts`
+- [x] Create `AppConfig.kt` for centralized configuration
+- [x] Update `ChatRepositoryImpl.kt` to use `AppConfig`
+- [x] Verify build and connectivity
+- [x] Atomic Commit

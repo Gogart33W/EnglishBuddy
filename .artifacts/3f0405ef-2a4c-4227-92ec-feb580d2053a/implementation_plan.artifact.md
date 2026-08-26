@@ -1,50 +1,40 @@
-# Implementation Plan - API Key Rotation & Stabilization
+# Implementation Plan - Fix 404 & Model Refactoring
 
-Implement a load-balancing system that rotates multiple Gemini API keys to bypass individual rate limits and support concurrent users.
+Address the 404 error by switching to a more stable model (`gemini-3.5-flash-lite`) and refactoring the configuration into a Kotlin object to prevent future regressions.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **API Keys Update**: You will need to update your `local.properties` file. Instead of one key, provide multiple keys separated by commas:
-> `GEMINI_API_KEYS=key1,key2,key3`
+> **Model Switch**: I am switching the model to `gemini-3.5-flash-lite` as suggested by your external analysis. This model is reported to be more stable and long-lived.
 
 > [!NOTE]
-> **Smart Failover**: If one key returns a `429 (Too Many Requests)`, the app will automatically switch to the next key and retry the request immediately, without making the user wait.
+> **Configuration Refactoring**: I will move the model and API configuration from `build.gradle.kts` into a dedicated `AppConfig` Kotlin object. This provides a single source of truth that is easier to inspect and maintain without needing a full build to see what's being used.
 
 ## Proposed Changes
 
 ### 1. Build Configuration
 
 #### [MODIFY] [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts)
-- Change `GEMINI_API_KEY` (String) to `GEMINI_API_KEYS` (String representing a comma-separated list).
-- Change `GEMINI_MODEL` to `gemini-1.5-flash` (or keep 2.5 if it's actually working in your environment, but 1.5 is standard stable).
+- Update `GEMINI_MODEL` to `"gemini-3.5-flash-lite"`.
 
-### 2. Network Layer (Rotation Logic)
+### 2. Code Refactoring (Config Management)
 
-#### [NEW] [ApiKeyProvider.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/ApiKeyProvider.kt)
-- A thread-safe singleton that manages the list of keys.
-- Methods: `getApiKey()` (returns current), `nextKey()` (rotates to the next one).
-
-#### [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt)
-- Update logic: When a `429` is detected:
-    1. Call `ApiKeyProvider.nextKey()`.
-    2. Retry the request with the new key **immediately** (no delay if keys are available).
-    3. If all keys are exhausted/rate-limited, then fallback to exponential backoff.
-
-#### [MODIFY] [NetworkClient.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/NetworkClient.kt)
-- Remove the `key` query parameter from the Retrofit interface or handle it via a new `ApiKeyInterceptor`.
+#### [NEW] [AppConfig.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/util/AppConfig.kt)
+- Create an `AppConfig` object.
+- Store `MODEL_NAME` (mapping to `BuildConfig.GEMINI_MODEL`).
+- Add comments with model expiration dates and links to Google AI Studio documentation to serve as a "trigger" for future updates.
 
 ### 3. Repository Layer
 
 #### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
-- Remove `BuildConfig.GEMINI_API_KEY` from direct calls. The interceptor will now handle key injection.
+- Use `AppConfig.MODEL_NAME` instead of `BuildConfig.GEMINI_MODEL` directly.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `./gradlew assembleDebug` to ensure compilation.
+- Run `./gradlew assembleDebug` to ensure the new model name and `AppConfig` are correctly integrated.
 
 ### Manual Verification
-1. **Load Balancing**: Monitor logs to see different API keys being used for consecutive requests.
-2. **Failover**: Simulate a 429 (or use a key that is already limited) and verify the app silently switches keys and succeeds.
-3. **Capacity**: Verify the app handles multiple rapid requests (simulating 10 users) across the pool of keys.
+1. **Connectivity**: Send a message to Buddy and verify that the 404 error is gone and a valid response is received.
+2. **Dictionary**: Tap a word and verify the definition still works with the new model.
+3. **Logs**: Check for any successful API requests to `gemini-3.5-flash-lite`.
