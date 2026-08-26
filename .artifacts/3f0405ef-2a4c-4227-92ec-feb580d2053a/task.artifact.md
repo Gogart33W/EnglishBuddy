@@ -1,13 +1,6 @@
-- [x] UI Polish: Navigation & Labels
-    - [x] Shorten "Vocabulary" to "Vocab" in `MainScreen.kt`
-- [x] UI Polish: Vocabulary Screen
-    - [x] Fix empty state centering and add icon
-- [x] UI Polish: Chat & Discoverability
-    - [x] Add visual tap indicator for interactive words in `ChatScreen.kt`
-- [x] Optimization: Dictionary Logic
-    - [x] Implement local "Stop-word" filter in `ChatViewModel.kt`
-    - [x] Add Loading Lock to prevent redundant API calls
-- [x] Speed & Asynchrony Audit
-    - [x] Ensure non-blocking state updates
-- [x] Verify build and performance
+- [x] Update Model to `gemini-2.5-flash-lite` in `app/build.gradle.kts`
+- [x] Update `AppConfig.kt` documentation
+- [x] Enhance `RetryInterceptor.kt` (Catch timeouts and 5xx errors)
+- [x] Optimize `ChatRepositoryImpl.kt` (Schema & context pruning)
+- [x] Verify build and latency
 - [x] Atomic Commit

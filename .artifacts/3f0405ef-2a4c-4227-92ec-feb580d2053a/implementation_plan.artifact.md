@@ -1,45 +1,44 @@
-# Implementation Plan - UI Polish & Dictionary Optimization
+# Implementation Plan - Performance & Timeout Fix
 
-Address UI wrapping issues, improve empty states, make interactive elements more discoverable, and optimize dictionary token usage.
+Address the long thinking times and timeouts by switching to a more optimized model, refining the retry logic, and increasing network resilience.
 
 ## User Review Required
 
-> [!NOTE]
-> **Label Change**: I will shorten "Vocabulary" to "Vocab" in the Bottom Navigation bar to prevent text wrapping and clipping on smaller screens.
+> [!IMPORTANT]
+> **Model Switch**: I am switching from `gemini-3.5-flash-lite` to **`gemini-2.5-flash-lite`**. Based on my latest research, 3.5 might be unstable or non-existent in your current project region. `2.5-flash-lite` is designed specifically for ultra-low latency and is less likely to timeout.
 
-> [!TIP]
-> **Stop-Word Filter**: To save tokens, I will implement a local filter for common "stop words" (e.g., "a", "the", "is"). Tapping these will show a local definition instead of calling the Gemini API.
+> [!WARNING]
+> **Retry Overload**: If you have many API keys from the *same* project, they share a "Daily Limit" (RPD). If you've reached 30/20 RPD as shown in your screenshot, ALL keys in that project will fail until tomorrow. If your keys are from different projects, the rotation will work perfectly.
 
 ## Proposed Changes
 
-### 1. UI Layer (Navigation & Layout)
+### 1. Build & Config
 
-#### [MODIFY] [MainScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MainScreen.kt)
-- Shorten `Screen.Vocabulary` label from "Vocabulary" to "Vocab".
+#### [MODIFY] [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts)
+- Update `GEMINI_MODEL` to `"gemini-2.5-flash-lite"`.
 
-#### [MODIFY] [VocabularyScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/VocabularyScreen.kt)
-- Fix the empty state `Box` to correctly use `fillMaxSize()` relative to the scaffold's content area.
-- Add an icon to the empty state for better visual balance.
+#### [MODIFY] [AppConfig.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/util/AppConfig.kt)
+- Update the documentation comments to reflect the switch to `2.5-flash-lite`.
 
-### 2. UI Layer (Chat & Discoverability)
+### 2. Network Layer (Resilience)
 
-#### [MODIFY] [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt)
-- **`InteractiveText`**: Add a subtle visual hint (e.g., a very light background or a dashed bottom border) to clickable words so the user knows they can be tapped.
-- **`WordDetailContent`**: Improve the layout to ensure it's perfectly centered and polished.
+#### [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt)
+- **Catch Timeouts**: Update the interceptor to catch `SocketTimeoutException` and try the next API key instead of just failing.
+- **Retry on 5xx**: Add retries for `500`, `502`, and `503` errors, as these are often transient server-side hiccups.
+- **Fast Fail**: If a key returns a terminal error (like 401 or 403), stop using it for the current session.
 
-### 3. Optimization & Performance
+### 3. Repository Layer (Optimization)
 
-#### [MODIFY] [ChatViewModel.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/viewmodel/ChatViewModel.kt)
-- **Local Pre-check**: Implement a local check for very common words (articles, pronouns). If a user taps "the", show a hardcoded definition to save API costs and time.
-- **Loading Lock**: Ensure multiple simultaneous taps on the same word don't trigger redundant API calls.
+#### [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt)
+- **Simplify Schema**: Ensure the `ResponseSchema` is as lightweight as possible to reduce "reasoning" time on the server.
+- **Context Pruning**: Verify history context is strictly limited to ensure the fastest possible inference.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `./gradlew assembleDebug` to verify no regressions.
+- Run `./gradlew assembleDebug` to verify compilation.
 
 ### Manual Verification
-1. **Bottom Bar**: Check that "Vocab" fits perfectly on one line.
-2. **Empty State**: Open Vocabulary with no words; verify the message is centered and not cropped.
-3. **Word Tapping**: Verify that words in Buddy's messages have a subtle visual indicator.
-4. **Token Savings**: Tap "the" and "a"; verify (via Logcat) that no API call is made.
+1. **Speed**: Send a message and measure the "thinking" time. It should be significantly faster with the `flash-lite` model.
+2. **Timeout Handling**: (Simulated) Verify that if one key is slow/timed out, the app rotates to the next one automatically.
+3. **Connectivity**: Verify the 404/429/Timeout cycle is broken and Buddy responds consistently.

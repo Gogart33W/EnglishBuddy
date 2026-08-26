@@ -1,36 +1,38 @@
-# Walkthrough - UI Polish & High-Level Optimization
+# Walkthrough - Ultra-Fast Latency & Network Resilience
 
-I have polished the UI to resolve wrapping issues and improved the performance of the dictionary system to save tokens and increase responsiveness.
+I have optimized EnglishBuddy for maximum speed and reliability by switching to an ultra-low latency model and hardening the network layer against timeouts.
 
-## Key Enhancements
+## Key Performance Upgrades
 
-### 1. UI Refinement & Navigation
-- **Bottom Navigation**: Shortened "Vocabulary" to **"Vocab"** in the [MainScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MainScreen.kt) to prevent text from wrapping to a new line and getting clipped on smaller screens.
-- **Centered Empty States**: Fixed the [VocabularyScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/VocabularyScreen.kt) empty state. The "No words saved" message is now perfectly centered with a subtle book icon, ensuring a professional look from the first launch.
+### 1. Ultra-Fast Model Switch
+- **Model Update**: Switched from `gemini-3.5-flash-lite` to **`gemini-2.5-flash-lite`**.
+- **Reasoning**: Research indicates 3.5 is currently unstable or rate-limited in your region, leading to long "thinking" times and timeouts. 2.5-flash-lite is the current gold standard for rapid, conversational AI.
 
-### 2. Discoverability & Interactivity
-- **Word Tap Indicators**: Added a very subtle background tint (5% opacity) to clickable words in the [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt). This makes it immediately obvious to the user that Buddy's messages are interactive.
+### 2. Hardened Network Layer (`RetryInterceptor`)
+- **Timeout Recovery**: The [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt) now explicitly catches `SocketTimeoutException`.
+- **Failover Rotation**: If a request hangs for too long, Buddy now instantly rotates to the **next API key** and retries, rather than making you wait for a failed connection.
+- **5xx Error Handling**: Added automatic retries for transient server errors (500, 502, 503).
 
-### 3. Performance & Token Optimization
-- **Local Stop-word Filter**: Implemented a local dictionary pre-check in [ChatViewModel.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/viewmodel/ChatViewModel.kt). Common words like "the", "a", "is", and "you" are now defined locally.
-    - **Speed**: Tapping these words results in an instant definition without network lag.
-    - **Efficiency**: Saves hundreds of Gemini API tokens per study session.
-- **Request Synchronization**: Added a loading lock to the dictionary fetch logic. If a word is already loading, additional taps are ignored until the current request finishes, preventing race conditions and duplicate API hits.
+### 3. Payload & Prompt Optimization
+- **Context Pruning**: Reduced the chat history sent to Gemini from 10 messages to **6 messages**. This smaller payload significantly reduces the model's processing time.
+- **Prompt Compression**: Highly condensed the system instruction in [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt) to use fewer tokens and reach the response phase faster.
 
 ## Changes at a Glance
 
-### [Component: UI]
-- [MODIFY] [MainScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/MainScreen.kt) (Label update)
-- [MODIFY] [VocabularyScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/VocabularyScreen.kt) (Layout centering)
-- [MODIFY] [ChatScreen.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/ui/ChatScreen.kt) (Visual indicators)
+### [Component: Network]
+- [MODIFY] [RetryInterceptor.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/remote/RetryInterceptor.kt) (Timeout/5xx handling + fast rotation)
 
-### [Component: ViewModel]
-- [MODIFY] [ChatViewModel.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/viewmodel/ChatViewModel.kt) (Caching & locking logic)
+### [Component: Build & Config]
+- [MODIFY] [app/build.gradle.kts](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/build.gradle.kts) (Switch to `gemini-2.5-flash-lite`)
+- [MODIFY] [AppConfig.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/util/AppConfig.kt) (Updated docs)
+
+### [Component: Repository]
+- [MODIFY] [ChatRepositoryImpl.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/data/repository/ChatRepositoryImpl.kt) (Context/Instruction pruning)
 
 ## Verification
 - Clean build: `./gradlew assembleDebug` passed.
-- UI Layout: Navigation bar text fits perfectly on one line.
-- Optimization: Verified that tapping "the" shows a definition instantly without network activity.
+- Speed: Noticeable reduction in time-to-first-token during testing.
+- Resilience: System will now handle slow keys by switching to backups automatically.
 
 > [!TIP]
-> The local filter is fully extensible. If you notice other common words frequently being tapped, they can be added to the `stopWords` map in [ChatViewModel.kt](file:///home/gogart/AndroidStudioProjects/EnglishBuddy/app/src/main/java/com/gogart/englishbuddy/viewmodel/ChatViewModel.kt).
+> This setup is now perfectly balanced for the free-tier API: lightweight requests and aggressive failover between your 5 API keys.

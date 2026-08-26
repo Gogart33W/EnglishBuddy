@@ -3,46 +3,54 @@ package com.gogart.englishbuddy.data.remote
 import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.Response
+import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import kotlin.math.pow
 import kotlin.random.Random
 
 class RetryInterceptor : Interceptor {
-    private val maxRetries = 5 // Increased for multi-key support
+    private val maxRetries = 5
     private val initialDelayMillis = 1000L
 
     override fun intercept(chain: Interceptor.Chain): Response {
         var request = chain.request()
-        var response = chain.proceed(request)
         var tryCount = 0
+        var lastResponse: Response? = null
 
-        while (response.code() == 429 && tryCount < maxRetries) {
+        while (tryCount < maxRetries) {
+            try {
+                val response = chain.proceed(request)
+                
+                // If success or non-retryable error, return
+                if (response.isSuccessful || !isRetryable(response.code())) {
+                    return response
+                }
+                
+                // If we reach here, it's 429 or 5xx
+                lastResponse = response
+                Log.w("RetryInterceptor", "Retryable error ${response.code()} (try ${tryCount + 1}). Rotating key...")
+                response.close()
+                
+            } catch (e: Exception) {
+                if (e is SocketTimeoutException || e is java.io.IOException) {
+                    Log.w("RetryInterceptor", "Network error/timeout: ${e.message} (try ${tryCount + 1}). Rotating key...")
+                } else {
+                    throw e
+                }
+            }
+
             tryCount++
-            Log.w("RetryInterceptor", "HTTP 429 detected (try $tryCount/$maxRetries). Rotating API key...")
-
-            // Rotate Key
+            
+            // Rotate Key and Rebuild Request
             ApiKeyProvider.nextKey()
-            
-            // Re-build request with new key (the ApiKeyInterceptor will pick up the new key from Provider)
-            // But we need to make sure the "key" query param is updated.
-            // Actually, proceeding with the same request object is fine if the ApiKeyInterceptor 
-            // is placed AFTER this one in the chain, OR if we rebuild it here.
-            // Let's assume ApiKeyInterceptor is at the end.
-            
             val newUrl = request.url().newBuilder()
                 .setQueryParameter("key", ApiKeyProvider.getApiKey())
                 .build()
-            
-            val newRequest = request.newBuilder()
-                .url(newUrl)
-                .build()
+            request = request.newBuilder().url(newUrl).build()
 
-            response.close()
-            
-            // If we have more than 1 key, we can retry faster. 
-            // If we only have 1 key or we've rotated through all, wait longer.
+            // Backoff
             val delay = if (tryCount < ApiKeyProvider.getKeyCount()) {
-                500L // Fast switch if we have backup keys
+                300L // Quick switch if we have more keys
             } else {
                 val backoff = initialDelayMillis * 2.0.pow((tryCount - ApiKeyProvider.getKeyCount()).coerceAtLeast(0).toDouble()).toLong()
                 backoff + Random.nextLong(0, 1000)
@@ -52,13 +60,14 @@ class RetryInterceptor : Interceptor {
                 TimeUnit.MILLISECONDS.sleep(delay)
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
-                return response
+                break
             }
-
-            request = newRequest
-            response = chain.proceed(request)
         }
 
-        return response
+        return lastResponse ?: chain.proceed(chain.request())
+    }
+
+    private fun isRetryable(code: Int): Boolean {
+        return code == 429 || code >= 500
     }
 }

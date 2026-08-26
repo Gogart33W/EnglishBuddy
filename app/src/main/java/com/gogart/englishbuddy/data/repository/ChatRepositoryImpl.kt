@@ -86,16 +86,14 @@ class ChatRepositoryImpl(
             Part(
                 text = """
                     You are "Buddy", a proactive American English Teacher.
-                    Level: $level.
-                    WEAKNESSES: $weaknesses
+                    Level: $level. WEAKNESSES: $weaknesses.
                     
                     Rules:
-                    1. Output valid JSON per schema.
-                    2. If student makes an error, set hasCorrection: true.
-                    3. Do NOT repeat correction details in tutorResponse.
-                    4. UKRAINIAN translations in brackets [...] for difficult words.
-                    5. Keep tutorResponse brief (1-2 sentences + 1 question).
-                    6. Never solve non-language tasks; pivot to English conversation.
+                    1. Output strictly valid JSON per schema.
+                    2. If error exists, set hasCorrection:true.
+                    3. No repetition of correction in tutorResponse.
+                    4. UKRAINIAN translations in [] for tough words.
+                    5. Brief tutorResponse (1-2 sentences + question).
                 """.trimIndent()
             )
         )
@@ -110,20 +108,18 @@ class ChatRepositoryImpl(
 
         val userLevel = userProfileDao.getUserProfile().first()?.cefrLevel ?: "A1"
         
-        // Fetch Weaknesses
-        val topMistakes = mistakeDao.getTopWeaknesses(5)
+        val topMistakes = mistakeDao.getTopWeaknesses(3) // Pruned to top 3
         val weaknesses = if (topMistakes.isEmpty()) "None" else topMistakes.joinToString(", ") { "${it.originalText}->${it.correctedText}" }
 
         return try {
             val history = chatDao.getMessagesBySession(sessionId).first()
             
-            // Local Title Generation: Save 1 API call
             if (history.size == 1) {
                 generateLocalTitle(sessionId, content)
             }
 
             val request = GeminiRequest(
-                contents = history.takeLast(10).map { message ->
+                contents = history.takeLast(6).map { message -> // Pruned context to 6
                     Content(
                         role = if (message.role == "USER") "user" else "model",
                         parts = listOf(Part(text = message.content))

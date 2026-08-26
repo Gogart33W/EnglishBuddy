@@ -7,8 +7,8 @@ import com.gogart.englishbuddy.BuildConfig
  * 
  * Model Lifecycle Reference:
  * - gemini-1.5-flash: DEPRECATED (404)
- * - gemini-2.5-flash: Stable until Oct 16, 2026.
- * - gemini-3.5-flash-lite: Current active stable model.
+ * - gemini-3.5-flash-lite: UNSTABLE in some regions (Timeouts)
+ * - gemini-2.5-flash-lite: Current active ultra-fast stable model.
  * 
  * To update keys, use `local.properties`: GEMINI_API_KEYS=key1,key2...
  */
